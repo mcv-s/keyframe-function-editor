@@ -1,0 +1,4133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Keyframe Function Editor</title>
+
+    <style>
+        * {
+            box-sizing: border-box;
+        }
+
+        :root {
+            --background: #111;
+            --panel: #181818;
+            --panel-light: #202020;
+            --border: #2d2d2d;
+            --text: #e8e8e8;
+            --muted: #888;
+            --accent: #d6d6d6;
+            --keyframe: #fff;
+        }
+
+        html,
+        body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            overflow: hidden;
+        }
+
+        body {
+            background: var(--background);
+            color: var(--text);
+
+            font-family:
+                Inter,
+                ui-sans-serif,
+                system-ui,
+                -apple-system,
+                BlinkMacSystemFont,
+                "Segoe UI",
+                sans-serif;
+
+            user-select: none;
+        }
+
+        button,
+        input,
+        select {
+            font: inherit;
+        }
+
+        button {
+            color: inherit;
+        }
+
+        .app {
+            width: 100%;
+            height: 100%;
+
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* -------------------------------------------------- */
+        /* Header                                               */
+        /* -------------------------------------------------- */
+
+        header {
+            height: 58px;
+            flex: 0 0 58px;
+
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            padding: 0 18px;
+
+            border-bottom: 1px solid var(--border);
+        }
+
+        .title {
+            font-size: 14px;
+            font-weight: 600;
+            letter-spacing: -0.01em;
+        }
+
+        .controls {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .control {
+            height: 32px;
+
+            display: flex;
+            align-items: center;
+            gap: 7px;
+
+            padding: 0 10px;
+
+            border: 1px solid var(--border);
+            border-radius: 7px;
+
+            background: var(--panel);
+
+            color: var(--text);
+
+            font-size: 12px;
+        }
+
+        .control input {
+            width: 58px;
+
+            border: 0;
+            outline: 0;
+
+            background: transparent;
+            color: inherit;
+
+            text-align: right;
+        }
+
+        .play-button {
+            width: 34px;
+            padding: 0;
+
+            justify-content: center;
+
+            cursor: pointer;
+        }
+
+        .play-button:hover {
+            background: var(--panel-light);
+        }
+
+        /* -------------------------------------------------- */
+        /* Graph                                                */
+        /* -------------------------------------------------- */
+
+        .workspace {
+            position: relative;
+
+            flex: 1 1 auto;
+            min-height: 0;
+
+            overflow: hidden;
+        }
+
+        .graph {
+            position: absolute;
+            inset: 0;
+
+            cursor: crosshair;
+        }
+
+        .graph-grid {
+            position: absolute;
+            inset: 0;
+
+            background-image:
+                linear-gradient(to right, rgba(255,255,255,.055) 1px, transparent 1px),
+                linear-gradient(to bottom, rgba(255,255,255,.055) 1px, transparent 1px);
+
+            background-size:
+                10% 100%,
+                100% 20%;
+        }
+
+        .graph-axis {
+            position: absolute;
+
+            left: 24px;
+            right: 24px;
+
+            top: 50%;
+
+            height: 1px;
+
+            background: #414141;
+        }
+
+        .graph-axis::before,
+        .graph-axis::after {
+            content: "";
+
+            position: absolute;
+            top: -3px;
+
+            width: 7px;
+            height: 7px;
+
+            border-top: 1px solid #777;
+            border-right: 1px solid #777;
+
+            transform: rotate(45deg);
+        }
+
+        .graph-axis::before {
+            left: -1px;
+            transform: rotate(-135deg);
+        }
+
+        .graph-axis::after {
+            right: -1px;
+        }
+
+        .axis-label {
+            position: absolute;
+
+            font-size: 11px;
+            color: #666;
+
+            pointer-events: none;
+        }
+
+        .axis-label.left {
+            left: 24px;
+            top: calc(50% + 9px);
+        }
+
+        .axis-label.right {
+            right: 24px;
+            top: calc(50% + 9px);
+        }
+
+        .axis-label.zero {
+            left: 50%;
+            top: calc(50% + 9px);
+
+            transform: translateX(-50%);
+        }
+
+        .value-readout {
+            position: absolute;
+
+            top: 18px;
+            left: 50%;
+
+            transform: translateX(-50%);
+
+            padding: 5px 9px;
+
+            border: 1px solid var(--border);
+            border-radius: 6px;
+
+            background: rgba(17,17,17,.9);
+
+            font-family: ui-monospace, monospace;
+            font-size: 11px;
+
+            color: #aaa;
+
+            pointer-events: none;
+        }
+
+        /* -------------------------------------------------- */
+        /* Moving circle                                        */
+        /* -------------------------------------------------- */
+
+        .playhead-circle {
+            position: absolute;
+
+            width: 18px;
+            height: 18px;
+
+            left: 50%;
+            top: 50%;
+
+            transform: translate(-50%, -50%);
+
+            border-radius: 50%;
+
+            background: white;
+
+            box-shadow:
+                0 0 0 4px rgba(255,255,255,.08),
+                0 0 22px rgba(255,255,255,.18);
+
+            pointer-events: none;
+
+            z-index: 5;
+        }
+
+        .circle-line {
+            position: absolute;
+
+            left: 0;
+            right: 0;
+
+            top: 50%;
+
+            height: 1px;
+
+            background: rgba(255,255,255,.10);
+
+            pointer-events: none;
+        }
+
+        /* -------------------------------------------------- */
+        /* Graph function line                                  */
+        /* -------------------------------------------------- */
+
+        .function-line {
+            position: absolute;
+
+            inset: 0;
+
+            width: 100%;
+            height: 100%;
+
+            overflow: visible;
+
+            pointer-events: none;
+
+            z-index: 4;
+            opacity: 0;
+        }
+
+        .function-line path {
+            fill: none;
+
+            stroke: rgba(255,255,255,.45);
+
+            stroke-width: 1.5;
+
+            vector-effect: non-scaling-stroke;
+        }
+
+        /* -------------------------------------------------- */
+        /* Timeline                                             */
+        /* -------------------------------------------------- */
+
+        .timeline {
+            position: relative;
+
+            height: 270px;
+            min-height: 120px;
+            max-height: 75vh;
+            flex: 0 0 270px;
+
+            border-top: 1px solid var(--border);
+
+            background: #151515;
+        }
+
+        .timeline-resizer {
+            position: absolute;
+
+            top: -5px;
+            left: 0;
+            right: 0;
+
+            height: 10px;
+
+            cursor: ns-resize;
+
+            z-index: 30;
+        }
+
+        .timeline-resizer::after {
+            content: "";
+
+            position: absolute;
+
+            left: 50%;
+            top: 4px;
+
+            width: 34px;
+            height: 2px;
+
+            transform: translateX(-50%);
+
+            border-radius: 2px;
+
+            background: #444;
+        }
+
+        .timeline-toolbar {
+            height: 46px;
+
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            padding: 0 14px;
+
+            border-bottom: 1px solid var(--border);
+        }
+
+        .time-display {
+            font-family: ui-monospace, monospace;
+            font-size: 12px;
+            color: #aaa;
+        }
+
+        .timeline-help {
+            font-size: 11px;
+            color: #666;
+        }
+
+        .timeline-body {
+            position: absolute;
+
+            top: 46px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+
+            overflow: hidden;
+        }
+
+        .timeline-ruler {
+            position: absolute;
+
+            top: 0;
+            left: 0;
+            right: 0;
+
+            height: 35px;
+
+            border-bottom: 1px solid var(--border);
+        }
+
+        .ruler-mark {
+            position: absolute;
+
+            top: 0;
+            bottom: 0;
+
+            width: 1px;
+
+            background: #292929;
+        }
+
+        .ruler-mark::after {
+            content: attr(data-time);
+
+            position: absolute;
+
+            top: 9px;
+            left: 4px;
+
+            color: #666;
+
+            font-family: ui-monospace, monospace;
+            font-size: 10px;
+        }
+
+        .timeline-track {
+            position: absolute;
+
+            top: 35px;
+            left: 0;
+            right: 0;
+            bottom: 0;
+        }
+
+        .track-line {
+            position: absolute;
+
+            top: 50%;
+            left: 0;
+            right: 0;
+
+            height: 1px;
+
+            background: #303030;
+        }
+
+        /*
+         * A faint zero-value guide.
+         */
+        .track-zero-line {
+            position: absolute;
+
+            left: 0;
+            right: 0;
+
+            top: 50%;
+
+            height: 1px;
+
+            background: rgba(255,255,255,.08);
+
+            pointer-events: none;
+        }
+
+        /*
+         * The value curve is drawn in SVG so the keyframe's
+         * X coordinate represents time and its Y coordinate
+         * represents value.
+         */
+        .timeline-function-line {
+            position: absolute;
+
+            inset: 0;
+
+            width: 100%;
+            height: 100%;
+
+            overflow: visible;
+
+            pointer-events: none;
+
+            z-index: 5;
+        }
+
+        .timeline-function-line path {
+            fill: none;
+
+            stroke: rgba(255,255,255,.32);
+
+            stroke-width: 1.5;
+
+            vector-effect: non-scaling-stroke;
+        }
+
+        .keyframe {
+            position: absolute;
+
+            width: 14px;
+            height: 14px;
+
+            transform: translate(-50%, -50%) rotate(45deg);
+
+            border: 1px solid #aaa;
+
+            background: #151515;
+
+            cursor: grab;
+
+            z-index: 10;
+        }
+
+        .keyframe:hover {
+            background: #aaa;
+        }
+
+        .keyframe.selected {
+            width: 16px;
+            height: 16px;
+
+            background: white;
+            border-color: white;
+        }
+
+        .keyframe:active {
+            cursor: grabbing;
+        }
+
+        .keyframe-label {
+            position: absolute;
+
+            left: 50%;
+            bottom: 18px;
+
+            transform: translateX(-50%) rotate(-45deg);
+
+            white-space: nowrap;
+
+            font-family: ui-monospace, monospace;
+            font-size: 9px;
+
+            color: #777;
+
+            pointer-events: none;
+        }
+
+        .timeline-playhead {
+            position: absolute;
+
+            top: 0;
+            bottom: 0;
+
+            width: 1px;
+
+            background: rgba(255,255,255,.65);
+
+            pointer-events: none;
+
+            z-index: 20;
+        }
+
+        .timeline-playhead::before {
+            content: "";
+
+            position: absolute;
+
+            top: 0;
+            left: 50%;
+
+            width: 7px;
+            height: 7px;
+
+            transform: translateX(-50%) rotate(45deg);
+
+            background: white;
+        }
+
+        /* -------------------------------------------------- */
+        /* Right panel                                          */
+        /* -------------------------------------------------- */
+
+        .right-panel {
+            position: absolute;
+
+            top: 12px;
+            right: 14px;
+
+            width: 330px;
+            max-height: calc(100% - 24px);
+
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+
+            z-index: 50;
+        }
+
+        /* -------------------------------------------------- */
+        /* Keyframe editor                                      */
+        /* -------------------------------------------------- */
+
+        .editor {
+            min-width: 0;
+
+            padding: 12px;
+
+            border: 1px solid var(--border);
+            border-radius: 8px;
+
+            background: rgba(24,24,24,.96);
+
+            box-shadow: 0 12px 40px rgba(0,0,0,.25);
+        }
+
+        .editor.hidden {
+            display: none;
+        }
+
+        .editor-title {
+            margin-bottom: 10px;
+
+            font-size: 11px;
+            font-weight: 600;
+
+            color: #aaa;
+        }
+
+        .editor-section {
+            margin-top: 11px;
+            padding-top: 10px;
+
+            border-top: 1px solid #292929;
+        }
+
+        .editor-section-title {
+            margin-bottom: 8px;
+
+            font-size: 9px;
+            font-weight: 600;
+
+            color: #555;
+
+            letter-spacing: .06em;
+            text-transform: uppercase;
+        }
+
+        .editor-row {
+            display: grid;
+            grid-template-columns: 75px 1fr;
+            align-items: center;
+
+            gap: 8px;
+
+            margin-bottom: 7px;
+        }
+
+        .editor-row label {
+            font-size: 10px;
+            color: #666;
+        }
+
+        .editor-row input,
+        .editor-row select {
+            width: 100%;
+            height: 28px;
+
+            padding: 0 7px;
+
+            outline: 0;
+
+            border: 1px solid var(--border);
+            border-radius: 5px;
+
+            background: #111;
+            color: #ddd;
+
+            font-size: 11px;
+        }
+
+        .editor-row input:focus,
+        .editor-row select:focus {
+            border-color: #555;
+        }
+
+        .sine-controls {
+            display: none;
+        }
+
+        .sine-controls.visible {
+            display: block;
+        }
+
+        .sine-description {
+            margin: -2px 0 8px 83px;
+
+            font-size: 9px;
+            line-height: 1.4;
+
+            color: #555;
+        }
+
+        .delete-keyframe {
+            width: 100%;
+            height: 27px;
+
+            margin-top: 8px;
+
+            border: 1px solid #352525;
+            border-radius: 5px;
+
+            background: #211717;
+            color: #c88;
+
+            cursor: pointer;
+
+            font-size: 10px;
+        }
+
+        .delete-keyframe:hover {
+            background: #2b1b1b;
+        }
+
+        /* -------------------------------------------------- */
+        /* Equation panel                                       */
+        /* -------------------------------------------------- */
+
+        .equation-panel {
+            min-width: 0;
+
+            padding: 12px;
+
+            border: 1px solid var(--border);
+            border-radius: 8px;
+
+            background: rgba(24,24,24,.96);
+
+            box-shadow: 0 12px 40px rgba(0,0,0,.25);
+        }
+
+        .equation-panel.hidden {
+            display: none;
+        }
+
+        .equation-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+
+            margin-bottom: 8px;
+        }
+
+        .equation-title {
+            font-size: 11px;
+            font-weight: 600;
+            color: #aaa;
+        }
+
+        .equation-controls {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        .equation-language {
+            height: 26px;
+
+            padding: 0 6px;
+
+            border: 1px solid var(--border);
+            border-radius: 5px;
+
+            outline: 0;
+
+            background: #111;
+            color: #aaa;
+
+            font-size: 10px;
+        }
+
+        .copy-equation {
+            height: 26px;
+
+            padding: 0 8px;
+
+            border: 1px solid var(--border);
+            border-radius: 5px;
+
+            background: #202020;
+            color: #aaa;
+
+            cursor: pointer;
+
+            font-size: 10px;
+        }
+
+        .copy-equation:hover {
+            background: #282828;
+            color: #ddd;
+        }
+
+        .equation-code {
+            width: 100%;
+            min-height: 86px;
+            max-height: 190px;
+
+            padding: 9px;
+
+            border: 1px solid #252525;
+            border-radius: 5px;
+
+            background: #101010;
+
+            color: #999;
+
+            font-family: ui-monospace, monospace;
+            font-size: 9px;
+            line-height: 1.5;
+
+            white-space: pre-wrap;
+            word-break: break-word;
+
+            overflow: auto;
+
+            user-select: text;
+        }
+
+        .equation-note {
+            margin-top: 7px;
+
+            color: #4f4f4f;
+
+            font-size: 9px;
+            line-height: 1.4;
+        }
+
+        /* -------------------------------------------------- */
+        /* Function output                                       */
+        /* -------------------------------------------------- */
+
+        .function-output {
+            position: absolute;
+
+            left: 14px;
+            bottom: 14px;
+
+            max-width: min(70%, 700px);
+
+            padding: 8px 10px;
+
+            border: 1px solid var(--border);
+            border-radius: 6px;
+
+            background: rgba(17,17,17,.88);
+
+            font-family: ui-monospace, monospace;
+            font-size: 10px;
+
+            color: #777;
+
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+
+            pointer-events: none;
+
+            z-index: 8;
+        }
+
+        /* -------------------------------------------------- */
+        /* Context hint                                          */
+        /* -------------------------------------------------- */
+
+        .empty-hint {
+            position: absolute;
+
+            left: 50%;
+            top: 50%;
+
+            transform: translate(-50%, -50%);
+
+            color: #444;
+
+            font-size: 12px;
+
+            pointer-events: none;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="app">
+
+        <header>
+            <div class="title">Keyframe Function Editor</div>
+
+            <div class="controls">
+                <button
+                    class="control play-button"
+                    id="playButton"
+                    title="Play / Pause (Space)"
+                >▶</button>
+
+                <div class="control">
+                    <span>Duration</span>
+                    <input
+                        id="durationInput"
+                        type="number"
+                        min="0.1"
+                        step="0.1"
+                        value="10"
+                    >
+                    <span>s</span>
+                </div>
+
+                <div class="control">
+                    <span>Value</span>
+                    <input
+                        id="valueRangeInput"
+                        type="number"
+                        step="1"
+                        value="100"
+                    >
+                </div>
+            </div>
+        </header>
+
+        <main class="workspace">
+
+            <div class="graph" id="graph">
+
+                <div class="graph-grid"></div>
+
+                <div class="circle-line"></div>
+
+                <div class="graph-axis"></div>
+
+                <div class="axis-label left" id="minLabel">-100</div>
+                <div class="axis-label zero">0</div>
+                <div class="axis-label right" id="maxLabel">100</div>
+
+                <svg
+                    class="function-line"
+                    id="functionLine"
+                    preserveAspectRatio="none"
+                >
+                    <path id="functionPath"></path>
+                </svg>
+
+                <div class="value-readout" id="valueReadout">
+                    t = 0.00 &nbsp; value = 0.00
+                </div>
+
+                <div class="playhead-circle" id="playheadCircle"></div>
+
+                <div class="function-output" id="functionOutput">
+                    f(t) = 0
+                </div>
+
+                <div class="empty-hint" id="emptyHint">
+                    Double-click the graph or timeline to add a keyframe
+                </div>
+            </div>
+
+            <div class="right-panel">
+
+                <div class="editor hidden" id="editor">
+
+                    <div class="editor-title">KEYFRAME</div>
+
+                    <div class="editor-row">
+                        <label>Time</label>
+                        <input id="keyTime" type="number" step="0.01">
+                    </div>
+
+                    <div class="editor-row">
+                        <label>Value</label>
+                        <input id="keyValue" type="number" step="0.1">
+                    </div>
+
+                    <div class="editor-section">
+
+                        <div class="editor-section-title">
+                            Incoming transition
+                        </div>
+
+                        <div class="editor-row">
+                            <label>Before</label>
+
+                            <select id="keyTransitionBefore">
+                                <option value="linear">Linear</option>
+
+                                <option value="sine-in">Sine In</option>
+                                <option value="sine-out">Sine Out</option>
+                                <option value="sine-in-out">Sine In Out</option>
+
+                                <option value="quad-in">Quadratic In</option>
+                                <option value="quad-out">Quadratic Out</option>
+                                <option value="quad-in-out">Quadratic In Out</option>
+
+                                <option value="cubic-in">Cubic In</option>
+                                <option value="cubic-out">Cubic Out</option>
+                                <option value="cubic-in-out">Cubic In Out</option>
+
+                                <option value="smoothstep">Smoothstep</option>
+
+                                <option value="exponential-in">Exponential In</option>
+                                <option value="exponential-out">Exponential Out</option>
+                                <option value="exponential-in-out">Exponential In Out</option>
+
+                                <option value="bounce-out">Bounce Out</option>
+                            </select>
+                        </div>
+
+                        <div class="sine-controls" id="sineBeforeControls">
+
+                            <div class="sine-description">
+                                Controls the sine wave's curvature approaching this keyframe.
+                            </div>
+
+                            <div class="editor-row">
+                                <label>Sine amount</label>
+
+                                <input
+                                    id="sineBefore"
+                                    type="number"
+                                    min="0"
+                                    max="1"
+                                    step="0.01"
+                                    value="1"
+                                >
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="editor-section">
+
+                        <div class="editor-section-title">
+                            Outgoing transition
+                        </div>
+
+                        <div class="editor-row">
+                            <label>After</label>
+
+                            <select id="keyTransitionAfter">
+                                <option value="linear">Linear</option>
+
+                                <option value="sine-in">Sine In</option>
+                                <option value="sine-out">Sine Out</option>
+                                <option value="sine-in-out">Sine In Out</option>
+
+                                <option value="quad-in">Quadratic In</option>
+                                <option value="quad-out">Quadratic Out</option>
+                                <option value="quad-in-out">Quadratic In Out</option>
+
+                                <option value="cubic-in">Cubic In</option>
+                                <option value="cubic-out">Cubic Out</option>
+                                <option value="cubic-in-out">Cubic In Out</option>
+
+                                <option value="smoothstep">Smoothstep</option>
+
+                                <option value="exponential-in">Exponential In</option>
+                                <option value="exponential-out">Exponential Out</option>
+                                <option value="exponential-in-out">Exponential In Out</option>
+
+                                <option value="bounce-out">Bounce Out</option>
+                            </select>
+                        </div>
+
+                        <div class="sine-controls" id="sineAfterControls">
+
+                            <div class="sine-description">
+                                Controls the sine wave's curvature leaving this keyframe.
+                            </div>
+
+                            <div class="editor-row">
+                                <label>Sine amount</label>
+
+                                <input
+                                    id="sineAfter"
+                                    type="number"
+                                    min="0"
+                                    max="1"
+                                    step="0.01"
+                                    value="1"
+                                >
+                            </div>
+                        </div>
+                    </div>
+
+                    <button class="delete-keyframe" id="deleteKeyframe">
+                        Delete keyframe
+                    </button>
+                </div>
+
+                <!--
+                    This panel intentionally disappears whenever a
+                    keyframe is selected. It returns when selection
+                    is cleared.
+                -->
+                <div class="equation-panel" id="equationPanel">
+
+                    <div class="equation-header">
+
+                        <div class="equation-title">
+                            EQUATION
+                        </div>
+
+                        <div class="equation-controls">
+
+                            <select
+                                class="equation-language"
+                                id="equationLanguage"
+                            >
+                                <option value="javascript">JavaScript</option>
+                                <option value="csharp">C#</option>
+                                <option value="python">Python</option>
+                                <option value="math">Math</option>
+                            </select>
+
+                            <button
+                                class="copy-equation"
+                                id="copyEquation"
+                            >
+                                Copy
+                            </button>
+
+                        </div>
+                    </div>
+
+                    <div
+                        class="equation-code"
+                        id="equationCode"
+                    >f(t) = 0</div>
+
+                    <div class="equation-note">
+                        The generated function reproduces the complete keyframed value from t = 0 to the selected duration.
+                    </div>
+                </div>
+
+            </div>
+        </main>
+
+        <section class="timeline" id="timeline">
+
+            <div class="timeline-resizer" id="timelineResizer"></div>
+
+            <div class="timeline-toolbar">
+                <div class="time-display" id="timeDisplay">
+                    0.00s / 10.00s
+                </div>
+
+                <div class="timeline-help">
+                    Space: play/pause · Drag timeline to scrub · Double-click: add keyframe
+                </div>
+            </div>
+
+            <div class="timeline-body">
+
+                <div class="timeline-ruler" id="timelineRuler"></div>
+
+                <div class="timeline-track" id="timelineTrack">
+
+                    <div class="track-line"></div>
+
+                    <div class="track-zero-line"></div>
+
+                    <svg
+                        class="timeline-function-line"
+                        id="timelineFunctionLine"
+                        preserveAspectRatio="none"
+                    >
+                        <path id="timelineFunctionPath"></path>
+                    </svg>
+
+                    <div
+                        class="timeline-playhead"
+                        id="timelinePlayhead"
+                    ></div>
+
+                </div>
+            </div>
+        </section>
+
+    </div>
+
+    <script>
+        (() => {
+            "use strict";
+
+            /*
+             * ----------------------------------------------------
+             * State
+             * ----------------------------------------------------
+             */
+
+            let duration = 10;
+
+            let valueRange = 100;
+
+            let currentTime = 0;
+
+            let playing = false;
+
+            let animationFrame = null;
+
+            let lastFrameTime = performance.now();
+
+            let selectedKeyframe = null;
+
+            let draggingKeyframe = null;
+
+            let scrubbingTimeline = false;
+
+            let resizingTimeline = false;
+
+            let resizeStartY = 0;
+
+            let resizeStartHeight = 0;
+
+            let keyframes = [
+                {
+                    id: crypto.randomUUID(),
+                    time: 0,
+                    value: 0,
+
+                    transitionBefore: "linear",
+                    transitionAfter: "linear",
+
+                    sineBefore: 1,
+                    sineAfter: 1
+                },
+
+                {
+                    id: crypto.randomUUID(),
+                    time: 3,
+                    value: 70,
+
+                    transitionBefore: "sine-in-out",
+                    transitionAfter: "sine-in-out",
+
+                    sineBefore: 1,
+                    sineAfter: 1
+                },
+
+                {
+                    id: crypto.randomUUID(),
+                    time: 6,
+                    value: -35,
+
+                    transitionBefore: "smoothstep",
+                    transitionAfter: "smoothstep",
+
+                    sineBefore: 1,
+                    sineAfter: 1
+                },
+
+                {
+                    id: crypto.randomUUID(),
+                    time: 10,
+                    value: 100,
+
+                    transitionBefore: "linear",
+                    transitionAfter: "linear",
+
+                    sineBefore: 1,
+                    sineAfter: 1
+                }
+            ];
+
+            /*
+             * ----------------------------------------------------
+             * DOM
+             * ----------------------------------------------------
+             */
+
+            const graph =
+                document.getElementById("graph");
+
+            const functionPath =
+                document.getElementById("functionPath");
+
+            const timeline =
+                document.getElementById("timeline");
+
+            const timelineTrack =
+                document.getElementById("timelineTrack");
+
+            const timelineFunctionPath =
+                document.getElementById(
+                    "timelineFunctionPath"
+                );
+
+            const timelineRuler =
+                document.getElementById("timelineRuler");
+
+            const timelinePlayhead =
+                document.getElementById("timelinePlayhead");
+
+            const playheadCircle =
+                document.getElementById("playheadCircle");
+
+            const playButton =
+                document.getElementById("playButton");
+
+            const durationInput =
+                document.getElementById("durationInput");
+
+            const valueRangeInput =
+                document.getElementById("valueRangeInput");
+
+            const valueReadout =
+                document.getElementById("valueReadout");
+
+            const timeDisplay =
+                document.getElementById("timeDisplay");
+
+            const editor =
+                document.getElementById("editor");
+
+            const keyTime =
+                document.getElementById("keyTime");
+
+            const keyValue =
+                document.getElementById("keyValue");
+
+            const keyTransitionBefore =
+                document.getElementById("keyTransitionBefore");
+
+            const keyTransitionAfter =
+                document.getElementById("keyTransitionAfter");
+
+            const sineBefore =
+                document.getElementById("sineBefore");
+
+            const sineAfter =
+                document.getElementById("sineAfter");
+
+            const sineBeforeControls =
+                document.getElementById("sineBeforeControls");
+
+            const sineAfterControls =
+                document.getElementById("sineAfterControls");
+
+            const deleteKeyframe =
+                document.getElementById("deleteKeyframe");
+
+            const functionOutput =
+                document.getElementById("functionOutput");
+
+            const emptyHint =
+                document.getElementById("emptyHint");
+
+            const minLabel =
+                document.getElementById("minLabel");
+
+            const maxLabel =
+                document.getElementById("maxLabel");
+
+            const timelineResizer =
+                document.getElementById("timelineResizer");
+
+            const equationPanel =
+                document.getElementById("equationPanel");
+
+            const equationCode =
+                document.getElementById("equationCode");
+
+            const equationLanguage =
+                document.getElementById("equationLanguage");
+
+            const copyEquation =
+                document.getElementById("copyEquation");
+
+            /*
+             * ----------------------------------------------------
+             * Easing functions
+             * ----------------------------------------------------
+             */
+
+            const easing = {
+
+                linear: t =>
+                    t,
+
+                "sine-in": t =>
+                    1 - Math.cos((t * Math.PI) / 2),
+
+                "sine-out": t =>
+                    Math.sin((t * Math.PI) / 2),
+
+                "sine-in-out": t =>
+                    -(Math.cos(Math.PI * t) - 1) / 2,
+
+                "quad-in": t =>
+                    t * t,
+
+                "quad-out": t =>
+                    1 - (1 - t) * (1 - t),
+
+                "quad-in-out": t =>
+                    t < 0.5
+                        ? 2 * t * t
+                        : 1 - Math.pow(-2 * t + 2, 2) / 2,
+
+                "cubic-in": t =>
+                    t * t * t,
+
+                "cubic-out": t =>
+                    1 - Math.pow(1 - t, 3),
+
+                "cubic-in-out": t =>
+                    t < 0.5
+                        ? 4 * t * t * t
+                        : 1 - Math.pow(-2 * t + 2, 3) / 2,
+
+                smoothstep: t =>
+                    t * t * (3 - 2 * t),
+
+                "exponential-in": t =>
+                    t === 0
+                        ? 0
+                        : Math.pow(2, 10 * (t - 1)),
+
+                "exponential-out": t =>
+                    t === 1
+                        ? 1
+                        : 1 - Math.pow(2, -10 * t),
+
+                "exponential-in-out": t => {
+                    if (t === 0 || t === 1) {
+                        return t;
+                    }
+
+                    return t < 0.5
+                        ? Math.pow(2, 20 * t - 10) / 2
+                        : (2 - Math.pow(2, -20 * t + 10)) / 2;
+                },
+
+                "bounce-out": t => {
+                    const n1 = 7.5625;
+                    const d1 = 2.75;
+
+                    if (t < 1 / d1) {
+                        return n1 * t * t;
+                    }
+
+                    if (t < 2 / d1) {
+                        t -= 1.5 / d1;
+                        return n1 * t * t + 0.75;
+                    }
+
+                    if (t < 2.5 / d1) {
+                        t -= 2.25 / d1;
+                        return n1 * t * t + 0.9375;
+                    }
+
+                    t -= 2.625 / d1;
+
+                    return n1 * t * t + 0.984375;
+                }
+            };
+
+            /*
+             * ----------------------------------------------------
+             * Helpers
+             * ----------------------------------------------------
+             */
+
+            function clamp(value, min, max) {
+                return Math.min(
+                    Math.max(value, min),
+                    max
+                );
+            }
+
+            function sortKeyframes() {
+                keyframes.sort(
+                    (a, b) =>
+                        a.time - b.time
+                );
+            }
+
+            function getGraphWidth() {
+                return graph.clientWidth;
+            }
+
+            function timeToX(time) {
+                return (
+                    clamp(
+                        time / duration,
+                        0,
+                        1
+                    ) *
+                    getGraphWidth()
+                );
+            }
+
+            function xToTime(x) {
+                return clamp(
+                    (x / getGraphWidth()) *
+                        duration,
+                    0,
+                    duration
+                );
+            }
+
+            /*
+             * Graph coordinates:
+             *
+             * X = value
+             * Y = fixed center line
+             *
+             * The circle therefore NEVER moves vertically.
+             */
+            function valueToGraphX(value) {
+                const normalized =
+                    (value + valueRange) /
+                    (valueRange * 2);
+
+                return (
+                    clamp(
+                        normalized,
+                        0,
+                        1
+                    ) *
+                    getGraphWidth()
+                );
+            }
+
+            /*
+             * Timeline coordinates:
+             *
+             * X = time
+             * Y = value
+             */
+            function valueToTimelineY(value) {
+                const height =
+                    timelineTrack.clientHeight;
+
+                const padding = 12;
+
+                const usableHeight =
+                    Math.max(
+                        1,
+                        height -
+                            padding * 2
+                    );
+
+                const normalized =
+                    clamp(
+                        (
+                            value +
+                            valueRange
+                        ) /
+                        (valueRange * 2),
+                        0,
+                        1
+                    );
+
+                return (
+                    padding +
+                    (
+                        1 -
+                        normalized
+                    ) *
+                    usableHeight
+                );
+            }
+
+            function timelineYToValue(y) {
+                const height =
+                    timelineTrack.clientHeight;
+
+                const padding = 12;
+
+                const usableHeight =
+                    Math.max(
+                        1,
+                        height -
+                            padding * 2
+                    );
+
+                const normalized =
+                    clamp(
+                        1 -
+                            (
+                                y -
+                                padding
+                            ) /
+                            usableHeight,
+                        0,
+                        1
+                    );
+
+                return (
+                    normalized *
+                    valueRange *
+                    2 -
+                    valueRange
+                );
+            }
+
+            function yToGraphValue(y) {
+                /*
+                 * Graph double-clicks still use the graph's
+                 * vertical axis to create a value.
+                 */
+                const normalized =
+                    1 -
+                    y /
+                        graph.clientHeight;
+
+                return (
+                    normalized *
+                    valueRange *
+                    2 -
+                    valueRange
+                );
+            }
+
+            function formatNumber(value) {
+                if (
+                    Math.abs(value) <
+                    0.000001
+                ) {
+                    return "0";
+                }
+
+                return Number(
+                    value.toFixed(6)
+                ).toString();
+            }
+
+            /*
+             * ----------------------------------------------------
+             * Easing evaluation
+             * ----------------------------------------------------
+             */
+
+            function getEasingValue(
+                type,
+                t,
+                sineAmount = 1
+            ) {
+                t =
+                    clamp(
+                        t,
+                        0,
+                        1
+                    );
+
+                const base =
+                    easing[type] ||
+                    easing.linear;
+
+                const eased =
+                    base(t);
+
+                if (
+                    !type.startsWith(
+                        "sine"
+                    )
+                ) {
+                    return eased;
+                }
+
+                return (
+                    t +
+                    (
+                        eased -
+                        t
+                    ) *
+                    clamp(
+                        sineAmount,
+                        0,
+                        1
+                    )
+                );
+            }
+
+            function getSegmentEasing(
+                a,
+                b,
+                progress
+            ) {
+                const leftType =
+                    a.transitionAfter ||
+                    "linear";
+
+                const rightType =
+                    b.transitionBefore ||
+                    "linear";
+
+                const leftAmount =
+                    a.sineAfter ??
+                    1;
+
+                const rightAmount =
+                    b.sineBefore ??
+                    1;
+
+                const left =
+                    getEasingValue(
+                        leftType,
+                        progress,
+                        leftAmount
+                    );
+
+                const right =
+                    getEasingValue(
+                        rightType,
+                        progress,
+                        rightAmount
+                    );
+
+                const blend =
+                    progress;
+
+                return (
+                    left *
+                        (1 - blend) +
+                    right *
+                        blend
+                );
+            }
+
+            /*
+             * ----------------------------------------------------
+             * Function evaluation
+             * ----------------------------------------------------
+             */
+
+            function evaluate(t) {
+                sortKeyframes();
+
+                if (
+                    keyframes.length === 0
+                ) {
+                    return 0;
+                }
+
+                if (
+                    keyframes.length === 1
+                ) {
+                    return keyframes[0].value;
+                }
+
+                if (
+                    t <=
+                    keyframes[0].time
+                ) {
+                    return keyframes[0].value;
+                }
+
+                const last =
+                    keyframes[
+                        keyframes.length - 1
+                    ];
+
+                if (
+                    t >= last.time
+                ) {
+                    return last.value;
+                }
+
+                let a =
+                    keyframes[0];
+
+                let b =
+                    keyframes[1];
+
+                for (
+                    let i = 0;
+                    i <
+                    keyframes.length - 1;
+                    i++
+                ) {
+                    if (
+                        t >=
+                            keyframes[i]
+                                .time &&
+                        t <=
+                            keyframes[i + 1]
+                                .time
+                    ) {
+                        a =
+                            keyframes[i];
+
+                        b =
+                            keyframes[i + 1];
+
+                        break;
+                    }
+                }
+
+                const span =
+                    b.time -
+                    a.time;
+
+                if (
+                    span <= 0
+                ) {
+                    return b.value;
+                }
+
+                const progress =
+                    clamp(
+                        (
+                            t -
+                            a.time
+                        ) /
+                            span,
+                        0,
+                        1
+                    );
+
+                const eased =
+                    getSegmentEasing(
+                        a,
+                        b,
+                        progress
+                    );
+
+                return (
+                    a.value +
+                    (
+                        b.value -
+                        a.value
+                    ) *
+                    eased
+                );
+            }
+
+            /*
+             * ----------------------------------------------------
+             * Ruler
+             * ----------------------------------------------------
+             */
+
+            function renderRuler() {
+                timelineRuler.innerHTML =
+                    "";
+
+                const divisions =
+                    10;
+
+                for (
+                    let i = 0;
+                    i <= divisions;
+                    i++
+                ) {
+                    const mark =
+                        document.createElement(
+                            "div"
+                        );
+
+                    mark.className =
+                        "ruler-mark";
+
+                    mark.style.left =
+                        `${
+                            (
+                                i /
+                                divisions
+                            ) *
+                            100
+                        }%`;
+
+                    mark.dataset.time =
+                        `${(
+                            (
+                                duration *
+                                i
+                            ) /
+                            divisions
+                        ).toFixed(
+                            duration < 10
+                                ? 2
+                                : 1
+                        )}s`;
+
+                    timelineRuler.appendChild(
+                        mark
+                    );
+                }
+            }
+
+            /*
+             * ----------------------------------------------------
+             * Function curve rendering
+             * ----------------------------------------------------
+             *
+             * The graph gets a time/value curve.
+             *
+             * This makes the function visible continuously rather
+             * than showing only the current playhead.
+             */
+
+            function buildCurvePath(
+                width,
+                height
+            ) {
+                if (
+                    keyframes.length === 0
+                ) {
+                    return "";
+                }
+
+                const samples =
+                    Math.max(
+                        120,
+                        Math.min(
+                            900,
+                            Math.round(
+                                width
+                            )
+                        )
+                    );
+
+                let path = "";
+
+                for (
+                    let i = 0;
+                    i <= samples;
+                    i++
+                ) {
+                    const t =
+                        (
+                            i /
+                            samples
+                        ) *
+                        duration;
+
+                    const value =
+                        evaluate(t);
+
+                    const x =
+                        clamp(
+                            t /
+                                duration,
+                            0,
+                            1
+                        ) *
+                        width;
+
+                    const normalized =
+                        (
+                            value +
+                            valueRange
+                        ) /
+                        (
+                            valueRange *
+                            2
+                        );
+
+                    const y =
+                        (
+                            1 -
+                            clamp(
+                                normalized,
+                                0,
+                                1
+                            )
+                        ) *
+                        height;
+
+                    path +=
+                        i === 0
+                            ? `M ${x.toFixed(2)} ${y.toFixed(2)}`
+                            : ` L ${x.toFixed(2)} ${y.toFixed(2)}`;
+                }
+
+                return path;
+            }
+
+            function renderFunctionCurve() {
+                const width =
+                    graph.clientWidth;
+
+                const height =
+                    graph.clientHeight;
+
+                functionPath.setAttribute(
+                    "d",
+                    buildCurvePath(
+                        width,
+                        height
+                    )
+                );
+            }
+
+            function renderTimelineCurve() {
+                const width =
+                    timelineTrack.clientWidth;
+
+                const height =
+                    timelineTrack.clientHeight;
+
+                timelineFunctionPath.setAttribute(
+                    "d",
+                    buildCurvePath(
+                        width,
+                        height
+                    )
+                );
+
+                /*
+                 * The generic curve builder maps value into a
+                 * top/bottom coordinate across the entire height.
+                 *
+                 * Timeline keyframes have a small padding, so
+                 * redraw the curve with the same padding here.
+                 */
+                if (
+                    keyframes.length === 0
+                ) {
+                    timelineFunctionPath.setAttribute(
+                        "d",
+                        ""
+                    );
+
+                    return;
+                }
+
+                const samples =
+                    Math.max(
+                        120,
+                        Math.min(
+                            900,
+                            Math.round(
+                                width
+                            )
+                        )
+                    );
+
+                const padding = 12;
+
+                const usableHeight =
+                    Math.max(
+                        1,
+                        height -
+                            padding * 2
+                    );
+
+                let path = "";
+
+                for (
+                    let i = 0;
+                    i <= samples;
+                    i++
+                ) {
+                    const t =
+                        (
+                            i /
+                            samples
+                        ) *
+                        duration;
+
+                    const value =
+                        evaluate(t);
+
+                    const x =
+                        (
+                            t /
+                            duration
+                        ) *
+                        width;
+
+                    const normalized =
+                        clamp(
+                            (
+                                value +
+                                valueRange
+                            ) /
+                            (
+                                valueRange *
+                                2
+                            ),
+                            0,
+                            1
+                        );
+
+                    const y =
+                        padding +
+                        (
+                            1 -
+                            normalized
+                        ) *
+                        usableHeight;
+
+                    path +=
+                        i === 0
+                            ? `M ${x.toFixed(2)} ${y.toFixed(2)}`
+                            : ` L ${x.toFixed(2)} ${y.toFixed(2)}`;
+                }
+
+                timelineFunctionPath.setAttribute(
+                    "d",
+                    path
+                );
+            }
+
+            /*
+             * ----------------------------------------------------
+             * Keyframe rendering
+             * ----------------------------------------------------
+             */
+
+            function renderKeyframes() {
+                document
+                    .querySelectorAll(
+                        ".keyframe"
+                    )
+                    .forEach(
+                        element =>
+                            element.remove()
+                    );
+
+                sortKeyframes();
+
+                keyframes.forEach(
+                    keyframe => {
+                        const element =
+                            document.createElement(
+                                "div"
+                            );
+
+                        element.className =
+                            "keyframe";
+
+                        if (
+                            selectedKeyframe &&
+                            selectedKeyframe.id ===
+                                keyframe.id
+                        ) {
+                            element.classList.add(
+                                "selected"
+                            );
+                        }
+
+                        element.dataset.id =
+                            keyframe.id;
+
+                        /*
+                         * X = time.
+                         * Y = value.
+                         */
+                        element.style.left =
+                            `${
+                                (
+                                    keyframe.time /
+                                    duration
+                                ) *
+                                100
+                            }%`;
+
+                        element.style.top =
+                            `${
+                                valueToTimelineY(
+                                    keyframe.value
+                                )
+                            }px`;
+
+                        const label =
+                            document.createElement(
+                                "div"
+                            );
+
+                        label.className =
+                            "keyframe-label";
+
+                        label.textContent =
+                            `${keyframe.time.toFixed(2)}s · ${keyframe.value.toFixed(1)}`;
+
+                        element.appendChild(
+                            label
+                        );
+
+                        element.addEventListener(
+                            "pointerdown",
+                            event => {
+                                event.stopPropagation();
+
+                                draggingKeyframe = {
+                                    keyframe,
+                                    pointerId:
+                                        event.pointerId,
+                                    element
+                                };
+
+                                element.setPointerCapture(
+                                    event.pointerId
+                                );
+
+                                selectKeyframe(
+                                    keyframe
+                                );
+                            }
+                        );
+
+                        element.addEventListener(
+                            "dblclick",
+                            event => {
+                                event.stopPropagation();
+
+                                selectKeyframe(
+                                    keyframe
+                                );
+                            }
+                        );
+
+                        timelineTrack.appendChild(
+                            element
+                        );
+                    }
+                );
+
+                emptyHint.style.display =
+                    keyframes.length
+                        ? "none"
+                        : "block";
+
+                renderTimelineCurve();
+            }
+
+            /*
+             * ----------------------------------------------------
+             * Rendering
+             * ----------------------------------------------------
+             */
+
+            function render() {
+                const value =
+                    evaluate(
+                        currentTime
+                    );
+
+                /*
+                 * The playhead circle is now driven by VALUE
+                 * horizontally.
+                 *
+                 * Its Y coordinate is permanently 50%.
+                 */
+                const x =
+                    valueToGraphX(
+                        value
+                    );
+
+                playheadCircle.style.left =
+                    `${x}px`;
+
+                playheadCircle.style.top =
+                    "50%";
+
+                timelinePlayhead.style.left =
+                    `${
+                        (
+                            currentTime /
+                            duration
+                        ) *
+                        100
+                    }%`;
+
+                valueReadout.innerHTML =
+                    `t = ${currentTime.toFixed(2)} &nbsp; value = ${value.toFixed(2)}`;
+
+                timeDisplay.textContent =
+                    `${currentTime.toFixed(2)}s / ${duration.toFixed(2)}s`;
+
+                minLabel.textContent =
+                    `${-valueRange}`;
+
+                maxLabel.textContent =
+                    `${valueRange}`;
+
+                playButton.textContent =
+                    playing
+                        ? "I I"
+                        : "▶";
+
+                renderFunctionText();
+
+                /*
+                 * Equation is only visible when no keyframe
+                 * is selected.
+                 */
+                if (
+                    !selectedKeyframe
+                ) {
+                    renderEquation();
+                }
+
+                updateSineControls();
+
+                renderFunctionCurve();
+                renderTimelineCurve();
+            }
+
+            function renderFunctionText() {
+                if (
+                    !keyframes.length
+                ) {
+                    functionOutput.textContent =
+                        "f(t) = 0";
+
+                    return;
+                }
+
+                const parts = [];
+
+                sortKeyframes();
+
+                for (
+                    let i = 0;
+                    i <
+                    keyframes.length - 1;
+                    i++
+                ) {
+                    const a =
+                        keyframes[i];
+
+                    const b =
+                        keyframes[i + 1];
+
+                    parts.push(
+                        `[${a.time.toFixed(2)}, ${b.time.toFixed(2)}] ${a.transitionAfter || "linear"} → ${b.transitionBefore || "linear"}`
+                    );
+                }
+
+                functionOutput.textContent =
+                    `f(t): ${parts.join("  ·  ")}`;
+            }
+
+            /*
+             * ----------------------------------------------------
+             * Selection
+             * ----------------------------------------------------
+             */
+
+            function selectKeyframe(
+                keyframe
+            ) {
+                selectedKeyframe =
+                    keyframe;
+
+                keyTime.value =
+                    keyframe.time.toFixed(
+                        2
+                    );
+
+                keyValue.value =
+                    keyframe.value.toFixed(
+                        2
+                    );
+
+                keyTransitionBefore.value =
+                    keyframe.transitionBefore ||
+                    "linear";
+
+                keyTransitionAfter.value =
+                    keyframe.transitionAfter ||
+                    "linear";
+
+                sineBefore.value =
+                    keyframe.sineBefore ??
+                    1;
+
+                sineAfter.value =
+                    keyframe.sineAfter ??
+                    1;
+
+                editor.classList.remove(
+                    "hidden"
+                );
+
+                equationPanel.classList.add(
+                    "hidden"
+                );
+
+                updateSineControls();
+
+                renderKeyframes();
+                render();
+            }
+
+            function deselectKeyframe() {
+                selectedKeyframe =
+                    null;
+
+                editor.classList.add(
+                    "hidden"
+                );
+
+                equationPanel.classList.remove(
+                    "hidden"
+                );
+
+                renderKeyframes();
+                render();
+            }
+
+            function clickIsEditorControl(
+                event
+            ) {
+                return Boolean(
+                    event.target.closest(
+                        ".editor, .equation-panel"
+                    )
+                );
+            }
+
+            /*
+             * ----------------------------------------------------
+             * Keyframe creation
+             * ----------------------------------------------------
+             */
+
+            function addKeyframe(
+                time,
+                value
+            ) {
+                const keyframe = {
+                    id:
+                        crypto.randomUUID(),
+
+                    time: clamp(
+                        time,
+                        0,
+                        duration
+                    ),
+
+                    value: clamp(
+                        value,
+                        -valueRange,
+                        valueRange
+                    ),
+
+                    transitionBefore:
+                        "linear",
+
+                    transitionAfter:
+                        "linear",
+
+                    sineBefore: 1,
+                    sineAfter: 1
+                };
+
+                keyframes.push(
+                    keyframe
+                );
+
+                sortKeyframes();
+
+                selectKeyframe(
+                    keyframe
+                );
+
+                currentTime =
+                    keyframe.time;
+
+                render();
+            }
+
+            /*
+             * ----------------------------------------------------
+             * Timeline scrubbing
+             * ----------------------------------------------------
+             */
+
+            function getSnappedTime(
+                time
+            ) {
+                const snapThreshold =
+                    Math.max(
+                        duration *
+                            0.015,
+                        0.04
+                    );
+
+                let closest =
+                    null;
+
+                let closestDistance =
+                    Infinity;
+
+                for (
+                    const keyframe
+                    of keyframes
+                ) {
+                    const distance =
+                        Math.abs(
+                            keyframe.time -
+                                time
+                        );
+
+                    if (
+                        distance <
+                        closestDistance
+                    ) {
+                        closestDistance =
+                            distance;
+
+                        closest =
+                            keyframe;
+                    }
+                }
+
+                if (
+                    closest &&
+                    closestDistance <=
+                        snapThreshold
+                ) {
+                    return closest.time;
+                }
+
+                return time;
+            }
+
+            function scrubToClientX(
+                clientX
+            ) {
+                const rect =
+                    timelineTrack.getBoundingClientRect();
+
+                let time =
+                    xToTime(
+                        clientX -
+                            rect.left
+                    );
+
+                time =
+                    getSnappedTime(
+                        time
+                    );
+
+                currentTime =
+                    clamp(
+                        time,
+                        0,
+                        duration
+                    );
+
+                render();
+            }
+
+            timelineTrack.addEventListener(
+                "pointerdown",
+                event => {
+                    if (
+                        event.target.closest(
+                            ".keyframe"
+                        )
+                    ) {
+                        return;
+                    }
+
+                    /*
+                     * Clicking an empty part of the timeline
+                     * always clears keyframe selection.
+                     */
+                    if (
+                        selectedKeyframe
+                    ) {
+                        deselectKeyframe();
+                    }
+
+                    scrubbingTimeline =
+                        true;
+
+                    timelineTrack.setPointerCapture(
+                        event.pointerId
+                    );
+
+                    scrubToClientX(
+                        event.clientX
+                    );
+
+                    event.preventDefault();
+                }
+            );
+
+            timelineTrack.addEventListener(
+                "pointermove",
+                event => {
+                    if (
+                        !scrubbingTimeline
+                    ) {
+                        return;
+                    }
+
+                    scrubToClientX(
+                        event.clientX
+                    );
+                }
+            );
+
+            timelineTrack.addEventListener(
+                "pointerup",
+                () => {
+                    scrubbingTimeline =
+                        false;
+                }
+            );
+
+            timelineTrack.addEventListener(
+                "pointercancel",
+                () => {
+                    scrubbingTimeline =
+                        false;
+                }
+            );
+
+            /*
+             * Ruler/body scrubbing too.
+             */
+            document
+                .querySelector(
+                    ".timeline-body"
+                )
+                .addEventListener(
+                    "pointerdown",
+                    event => {
+                        if (
+                            event.target.closest(
+                                ".keyframe"
+                            ) ||
+                            event.target.closest(
+                                ".timeline-track"
+                            )
+                        ) {
+                            return;
+                        }
+
+                        if (
+                            selectedKeyframe
+                        ) {
+                            deselectKeyframe();
+                        }
+
+                        const rect =
+                            timelineTrack.getBoundingClientRect();
+
+                        currentTime =
+                            getSnappedTime(
+                                xToTime(
+                                    event.clientX -
+                                        rect.left
+                                )
+                            );
+
+                        render();
+                    }
+                );
+
+            /*
+             * ----------------------------------------------------
+             * Timeline double click
+             * ----------------------------------------------------
+             */
+
+            timelineTrack.addEventListener(
+                "dblclick",
+                event => {
+                    if (
+                        event.target.closest(
+                            ".keyframe"
+                        )
+                    ) {
+                        return;
+                    }
+
+                    const rect =
+                        timelineTrack.getBoundingClientRect();
+
+                    const time =
+                        xToTime(
+                            event.clientX -
+                                rect.left
+                        );
+
+                    addKeyframe(
+                        time,
+                        evaluate(time)
+                    );
+                }
+            );
+
+            /*
+             * ----------------------------------------------------
+             * Timeline keyframe dragging
+             * ----------------------------------------------------
+             *
+             * Keyframes can now be dragged in BOTH dimensions:
+             *
+             * X -> time
+             * Y -> value
+             *
+             * This makes the timeline itself a small editable
+             * time/value graph.
+             * ----------------------------------------------------
+             */
+
+            window.addEventListener(
+                "pointermove",
+                event => {
+                    if (
+                        !draggingKeyframe
+                    ) {
+                        return;
+                    }
+
+                    const rect =
+                        timelineTrack.getBoundingClientRect();
+
+                    let time =
+                        clamp(
+                            (
+                                event.clientX -
+                                    rect.left
+                            ) /
+                                rect.width *
+                                duration,
+                            0,
+                            duration
+                        );
+
+                    time =
+                        getSnappedTime(
+                            time
+                        );
+
+                    const value =
+                        clamp(
+                            timelineYToValue(
+                                event.clientY -
+                                    rect.top
+                            ),
+                            -valueRange,
+                            valueRange
+                        );
+
+                    draggingKeyframe
+                        .keyframe
+                        .time =
+                        time;
+
+                    draggingKeyframe
+                        .keyframe
+                        .value =
+                        value;
+
+                    currentTime =
+                        time;
+
+                    sortKeyframes();
+
+                    renderKeyframes();
+                    render();
+
+                    if (
+                        selectedKeyframe
+                    ) {
+                        keyTime.value =
+                            selectedKeyframe.time.toFixed(
+                                2
+                            );
+
+                        keyValue.value =
+                            selectedKeyframe.value.toFixed(
+                                2
+                            );
+                    }
+                }
+            );
+
+            window.addEventListener(
+                "pointerup",
+                () => {
+                    draggingKeyframe =
+                        null;
+                }
+            );
+
+            /*
+             * ----------------------------------------------------
+             * Graph interactions
+             * ----------------------------------------------------
+             */
+
+            graph.addEventListener(
+                "dblclick",
+                event => {
+                    if (
+                        clickIsEditorControl(
+                            event
+                        )
+                    ) {
+                        return;
+                    }
+
+                    const rect =
+                        graph.getBoundingClientRect();
+
+                    const x =
+                        event.clientX -
+                        rect.left;
+
+                    const y =
+                        event.clientY -
+                        rect.top;
+
+                    addKeyframe(
+                        xToTime(x),
+                        yToGraphValue(y)
+                    );
+                }
+            );
+
+            graph.addEventListener(
+                "pointerdown",
+                event => {
+                    if (
+                        clickIsEditorControl(
+                            event
+                        )
+                    ) {
+                        return;
+                    }
+
+                    if (
+                        event.target ===
+                            graph ||
+                        event.target.classList.contains(
+                            "graph-grid"
+                        ) ||
+                        event.target.classList.contains(
+                            "circle-line"
+                        ) ||
+                        event.target.classList.contains(
+                            "graph-axis"
+                        )
+                    ) {
+                        deselectKeyframe();
+
+                        const rect =
+                            graph.getBoundingClientRect();
+
+                        currentTime =
+                            xToTime(
+                                event.clientX -
+                                    rect.left
+                            );
+
+                        render();
+                    }
+                }
+            );
+
+            /*
+             * ----------------------------------------------------
+             * Editor controls
+             * ----------------------------------------------------
+             */
+
+            keyTime.addEventListener(
+                "input",
+                () => {
+                    if (
+                        !selectedKeyframe
+                    ) {
+                        return;
+                    }
+
+                    selectedKeyframe.time =
+                        clamp(
+                            Number(
+                                keyTime.value
+                            ) || 0,
+                            0,
+                            duration
+                        );
+
+                    currentTime =
+                        selectedKeyframe.time;
+
+                    sortKeyframes();
+
+                    renderKeyframes();
+                    render();
+                }
+            );
+
+            keyValue.addEventListener(
+                "input",
+                () => {
+                    if (
+                        !selectedKeyframe
+                    ) {
+                        return;
+                    }
+
+                    selectedKeyframe.value =
+                        clamp(
+                            Number(
+                                keyValue.value
+                            ) || 0,
+                            -valueRange,
+                            valueRange
+                        );
+
+                    renderKeyframes();
+                    render();
+                }
+            );
+
+            keyTransitionBefore.addEventListener(
+                "change",
+                () => {
+                    if (
+                        !selectedKeyframe
+                    ) {
+                        return;
+                    }
+
+                    selectedKeyframe
+                        .transitionBefore =
+                        keyTransitionBefore.value;
+
+                    updateSineControls();
+                    render();
+                }
+            );
+
+            keyTransitionAfter.addEventListener(
+                "change",
+                () => {
+                    if (
+                        !selectedKeyframe
+                    ) {
+                        return;
+                    }
+
+                    selectedKeyframe
+                        .transitionAfter =
+                        keyTransitionAfter.value;
+
+                    updateSineControls();
+                    render();
+                }
+            );
+
+            sineBefore.addEventListener(
+                "input",
+                () => {
+                    if (
+                        !selectedKeyframe
+                    ) {
+                        return;
+                    }
+
+                    selectedKeyframe.sineBefore =
+                        clamp(
+                            Number(
+                                sineBefore.value
+                            ) || 0,
+                            0,
+                            1
+                        );
+
+                    render();
+                }
+            );
+
+            sineAfter.addEventListener(
+                "input",
+                () => {
+                    if (
+                        !selectedKeyframe
+                    ) {
+                        return;
+                    }
+
+                    selectedKeyframe.sineAfter =
+                        clamp(
+                            Number(
+                                sineAfter.value
+                            ) || 0,
+                            0,
+                            1
+                        );
+
+                    render();
+                }
+            );
+
+            function updateSineControls() {
+                if (
+                    !selectedKeyframe
+                ) {
+                    sineBeforeControls
+                        .classList.remove(
+                            "visible"
+                        );
+
+                    sineAfterControls
+                        .classList.remove(
+                            "visible"
+                        );
+
+                    return;
+                }
+
+                sineBeforeControls
+                    .classList.toggle(
+                        "visible",
+                        selectedKeyframe
+                            .transitionBefore
+                            .startsWith(
+                                "sine"
+                            )
+                    );
+
+                sineAfterControls
+                    .classList.toggle(
+                        "visible",
+                        selectedKeyframe
+                            .transitionAfter
+                            .startsWith(
+                                "sine"
+                            )
+                    );
+            }
+
+            deleteKeyframe.addEventListener(
+                "click",
+                () => {
+                    if (
+                        !selectedKeyframe
+                    ) {
+                        return;
+                    }
+
+                    keyframes =
+                        keyframes.filter(
+                            keyframe =>
+                                keyframe.id !==
+                                selectedKeyframe.id
+                        );
+
+                    deselectKeyframe();
+
+                    render();
+                }
+            );
+
+            /*
+             * ----------------------------------------------------
+             * Duration / value range
+             * ----------------------------------------------------
+             */
+
+            durationInput.addEventListener(
+                "change",
+                () => {
+                    duration =
+                        Math.max(
+                            0.1,
+                            Number(
+                                durationInput.value
+                            ) || 10
+                        );
+
+                    durationInput.value =
+                        duration;
+
+                    keyframes.forEach(
+                        keyframe => {
+                            keyframe.time =
+                                clamp(
+                                    keyframe.time,
+                                    0,
+                                    duration
+                                );
+                        }
+                    );
+
+                    currentTime =
+                        clamp(
+                            currentTime,
+                            0,
+                            duration
+                        );
+
+                    renderRuler();
+                    renderKeyframes();
+                    render();
+                }
+            );
+
+            valueRangeInput.addEventListener(
+                "change",
+                () => {
+                    valueRange =
+                        Math.max(
+                            1,
+                            Math.abs(
+                                Number(
+                                    valueRangeInput
+                                        .value
+                                ) || 100
+                            )
+                        );
+
+                    valueRangeInput.value =
+                        valueRange;
+
+                    keyframes.forEach(
+                        keyframe => {
+                            keyframe.value =
+                                clamp(
+                                    keyframe.value,
+                                    -valueRange,
+                                    valueRange
+                                );
+                        }
+                    );
+
+                    renderKeyframes();
+                    render();
+                }
+            );
+
+            /*
+             * ----------------------------------------------------
+             * Equation generation
+             * ----------------------------------------------------
+             */
+
+            function easingExpression(
+                type,
+                variable,
+                language,
+                sineAmount
+            ) {
+                let expression;
+
+                switch (type) {
+                    case "linear":
+                        expression =
+                            variable;
+                        break;
+
+                    case "sine-in":
+                        expression =
+                            `1 - cos((${variable} * PI) / 2)`;
+                        break;
+
+                    case "sine-out":
+                        expression =
+                            `sin((${variable} * PI) / 2)`;
+                        break;
+
+                    case "sine-in-out":
+                        expression =
+                            `-(cos(PI * ${variable}) - 1) / 2`;
+                        break;
+
+                    case "quad-in":
+                        expression =
+                            `(${variable} * ${variable})`;
+                        break;
+
+                    case "quad-out":
+                        expression =
+                            `1 - (1 - ${variable}) * (1 - ${variable})`;
+                        break;
+
+                    case "quad-in-out":
+                        expression =
+                            `(${variable} < 0.5 ? 2 * ${variable} * ${variable} : 1 - pow(-2 * ${variable} + 2, 2) / 2)`;
+                        break;
+
+                    case "cubic-in":
+                        expression =
+                            `(${variable} * ${variable} * ${variable})`;
+                        break;
+
+                    case "cubic-out":
+                        expression =
+                            `1 - pow(1 - ${variable}, 3)`;
+                        break;
+
+                    case "cubic-in-out":
+                        expression =
+                            `(${variable} < 0.5 ? 4 * ${variable} * ${variable} * ${variable} : 1 - pow(-2 * ${variable} + 2, 3) / 2)`;
+                        break;
+
+                    case "smoothstep":
+                        expression =
+                            `(${variable} * ${variable} * (3 - 2 * ${variable}))`;
+                        break;
+
+                    case "exponential-in":
+                        expression =
+                            `(${variable} == 0 ? 0 : pow(2, 10 * (${variable} - 1)))`;
+                        break;
+
+                    case "exponential-out":
+                        expression =
+                            `(${variable} == 1 ? 1 : 1 - pow(2, -10 * ${variable}))`;
+                        break;
+
+                    case "exponential-in-out":
+                        expression =
+                            `(${variable} == 0 || ${variable} == 1 ? ${variable} : (${variable} < 0.5 ? pow(2, 20 * ${variable} - 10) / 2 : (2 - pow(2, -20 * ${variable} + 10)) / 2))`;
+                        break;
+
+                    case "bounce-out":
+                        expression =
+                            `bounceOut(${variable})`;
+                        break;
+
+                    default:
+                        expression =
+                            variable;
+                }
+
+                if (
+                    type.startsWith(
+                        "sine"
+                    ) &&
+                    sineAmount !== 1
+                ) {
+                    expression =
+                        `(${variable} + (${expression} - ${variable}) * ${formatNumber(sineAmount)})`;
+                }
+
+                if (
+                    language === "math"
+                ) {
+                    expression =
+                        expression
+                            .replaceAll(
+                                "PI",
+                                "π"
+                            )
+                            .replaceAll(
+                                "cos",
+                                "\\cos"
+                            )
+                            .replaceAll(
+                                "sin",
+                                "\\sin"
+                            );
+                }
+
+                return expression;
+            }
+
+            function generateEquation(
+                language
+            ) {
+                sortKeyframes();
+
+                if (
+                    keyframes.length === 0
+                ) {
+                    if (
+                        language ===
+                        "python"
+                    ) {
+                        return (
+                            "def f(t):\n" +
+                            "    return 0"
+                        );
+                    }
+
+                    if (
+                        language ===
+                        "csharp"
+                    ) {
+                        return (
+                            "double F(double t)\n" +
+                            "{\n" +
+                            "    return 0;\n" +
+                            "}"
+                        );
+                    }
+
+                    if (
+                        language ===
+                        "math"
+                    ) {
+                        return "f(t) = 0";
+                    }
+
+                    return (
+                        "function f(t) {\n" +
+                        "    return 0;\n" +
+                        "}"
+                    );
+                }
+
+                if (
+                    keyframes.length === 1
+                ) {
+                    const value =
+                        formatNumber(
+                            keyframes[0]
+                                .value
+                        );
+
+                    if (
+                        language ===
+                        "python"
+                    ) {
+                        return (
+                            "def f(t):\n" +
+                            `    return ${value}`
+                        );
+                    }
+
+                    if (
+                        language ===
+                        "csharp"
+                    ) {
+                        return (
+                            "double F(double t)\n" +
+                            "{\n" +
+                            `    return ${value};\n` +
+                            "}"
+                        );
+                    }
+
+                    if (
+                        language ===
+                        "math"
+                    ) {
+                        return (
+                            `f(t) = ${value}`
+                        );
+                    }
+
+                    return (
+                        "function f(t) {\n" +
+                        `    return ${value};\n` +
+                        "}"
+                    );
+                }
+
+                const segments = [];
+
+                for (
+                    let i = 0;
+                    i <
+                    keyframes.length - 1;
+                    i++
+                ) {
+                    const a =
+                        keyframes[i];
+
+                    const b =
+                        keyframes[i + 1];
+
+                    const span =
+                        b.time -
+                        a.time;
+
+                    const left =
+                        easingExpression(
+                            a.transitionAfter ||
+                                "linear",
+                            "u",
+                            language,
+                            a.sineAfter ??
+                                1
+                        );
+
+                    const right =
+                        easingExpression(
+                            b.transitionBefore ||
+                                "linear",
+                            "u",
+                            language,
+                            b.sineBefore ??
+                                1
+                        );
+
+                    const eased =
+                        `(${left}) * (1 - u) + (${right}) * u`;
+
+                    const value =
+                        `${formatNumber(a.value)} + (${formatNumber(b.value)} - ${formatNumber(a.value)}) * (${eased})`;
+
+                    segments.push({
+                        a,
+                        b,
+                        span,
+                        expression:
+                            value
+                    });
+                }
+
+                if (
+                    language === "math"
+                ) {
+                    const pieces = [];
+
+                    const first =
+                        keyframes[0];
+
+                    const last =
+                        keyframes[
+                            keyframes.length - 1
+                        ];
+
+                    pieces.push(
+                        `f(t) = \\begin{cases}`
+                    );
+
+                    pieces.push(
+                        `\\ ${formatNumber(first.value)}, & t \\le ${formatNumber(first.time)} \\\\`
+                    );
+
+                    for (
+                        const segment
+                        of segments
+                    ) {
+                        const a =
+                            segment.a;
+
+                        const b =
+                            segment.b;
+
+                        let expression =
+                            segment.expression;
+
+                        /*
+                         * Replace the local u with an explicit
+                         * normalized-time expression.
+                         */
+                        expression =
+                            expression.replaceAll(
+                                "u",
+                                `\\frac{t-${formatNumber(a.time)}}{${formatNumber(segment.span)}}`
+                            );
+
+                        pieces.push(
+                            `\\ ${expression}, & ${formatNumber(a.time)} < t \\le ${formatNumber(b.time)} \\\\`
+                        );
+                    }
+
+                    pieces.push(
+                        `\\ ${formatNumber(last.value)}, & t > ${formatNumber(last.time)}`
+                    );
+
+                    pieces.push(
+                        `\\end{cases}`
+                    );
+
+                    return pieces.join(
+                        "\n"
+                    );
+                }
+
+                if (
+                    language ===
+                    "python"
+                ) {
+                    const lines = [
+                        "import math",
+                        "",
+                        "def bounceOut(t):",
+                        "    n1 = 7.5625",
+                        "    d1 = 2.75",
+                        "",
+                        "    if t < 1 / d1:",
+                        "        return n1 * t * t",
+                        "",
+                        "    if t < 2 / d1:",
+                        "        t -= 1.5 / d1",
+                        "        return n1 * t * t + 0.75",
+                        "",
+                        "    if t < 2.5 / d1:",
+                        "        t -= 2.25 / d1",
+                        "        return n1 * t * t + 0.9375",
+                        "",
+                        "    t -= 2.625 / d1",
+                        "    return n1 * t * t + 0.984375",
+                        "",
+                        "",
+                        "def f(t):"
+                    ];
+
+                    lines.push(
+                        `    if t <= ${formatNumber(keyframes[0].time)}:`
+                    );
+
+                    lines.push(
+                        `        return ${formatNumber(keyframes[0].value)}`
+                    );
+
+                    for (
+                        const segment
+                        of segments
+                    ) {
+                        lines.push(
+                            `    elif t <= ${formatNumber(segment.b.time)}:`
+                        );
+
+                        lines.push(
+                            `        u = (t - ${formatNumber(segment.a.time)}) / ${formatNumber(segment.span)}`
+                        );
+
+                        lines.push(
+                            `        return ${segment.expression
+                                .replaceAll(
+                                    "PI",
+                                    "math.pi"
+                                )
+                                .replaceAll(
+                                    "pow",
+                                    "math.pow"
+                                )
+                                .replaceAll(
+                                    "cos",
+                                    "math.cos"
+                                )
+                                .replaceAll(
+                                    "sin",
+                                    "math.sin"
+                                )}`
+                        );
+                    }
+
+                    lines.push(
+                        `    return ${formatNumber(keyframes[keyframes.length - 1].value)}`
+                    );
+
+                    return lines.join(
+                        "\n"
+                    );
+                }
+
+                if (
+                    language ===
+                    "csharp"
+                ) {
+                    const lines = [
+                        "static double BounceOut(double t)",
+                        "{",
+                        "    const double n1 = 7.5625;",
+                        "    const double d1 = 2.75;",
+                        "",
+                        "    if (t < 1.0 / d1)",
+                        "        return n1 * t * t;",
+                        "",
+                        "    if (t < 2.0 / d1)",
+                        "    {",
+                        "        t -= 1.5 / d1;",
+                        "        return n1 * t * t + 0.75;",
+                        "    }",
+                        "",
+                        "    if (t < 2.5 / d1)",
+                        "    {",
+                        "        t -= 2.25 / d1;",
+                        "        return n1 * t * t + 0.9375;",
+                        "    }",
+                        "",
+                        "    t -= 2.625 / d1;",
+                        "    return n1 * t * t + 0.984375;",
+                        "}",
+                        "",
+                        "static double F(double t)",
+                        "{"
+                    ];
+
+                    lines.push(
+                        `    if (t <= ${formatNumber(keyframes[0].time)})`
+                    );
+
+                    lines.push(
+                        `        return ${formatNumber(keyframes[0].value)};`
+                    );
+
+                    for (
+                        const segment
+                        of segments
+                    ) {
+                        lines.push(
+                            `    else if (t <= ${formatNumber(segment.b.time)})`
+                        );
+
+                        lines.push(
+                            "    {"
+                        );
+
+                        lines.push(
+                            `        double u = (t - ${formatNumber(segment.a.time)}) / ${formatNumber(segment.span)};`
+                        );
+
+                        lines.push(
+                            `        return ${segment.expression
+                                .replaceAll(
+                                    "PI",
+                                    "Math.PI"
+                                )
+                                .replaceAll(
+                                    "pow",
+                                    "Math.Pow"
+                                )
+                                .replaceAll(
+                                    "cos",
+                                    "Math.Cos"
+                                )
+                                .replaceAll(
+                                    "sin",
+                                    "Math.Sin"
+                                )
+                                .replaceAll(
+                                    "bounceOut",
+                                    "BounceOut"
+                                )};`
+                        );
+
+                        lines.push(
+                            "    }"
+                        );
+                    }
+
+                    lines.push(
+                        `    return ${formatNumber(keyframes[keyframes.length - 1].value)};`
+                    );
+
+                    lines.push(
+                        "}"
+                    );
+
+                    return lines.join(
+                        "\n"
+                    );
+                }
+
+                /*
+                 * JavaScript
+                 */
+
+                const lines = [
+                    "function bounceOut(t) {",
+                    "    const n1 = 7.5625;",
+                    "    const d1 = 2.75;",
+                    "",
+                    "    if (t < 1 / d1)",
+                    "        return n1 * t * t;",
+                    "",
+                    "    if (t < 2 / d1) {",
+                    "        t -= 1.5 / d1;",
+                    "        return n1 * t * t + 0.75;",
+                    "    }",
+                    "",
+                    "    if (t < 2.5 / d1) {",
+                    "        t -= 2.25 / d1;",
+                    "        return n1 * t * t + 0.9375;",
+                    "    }",
+                    "",
+                    "    t -= 2.625 / d1;",
+                    "    return n1 * t * t + 0.984375;",
+                    "}",
+                    "",
+                    "function f(t) {"
+                ];
+
+                lines.push(
+                    `    if (t <= ${formatNumber(keyframes[0].time)})`
+                );
+
+                lines.push(
+                    `        return ${formatNumber(keyframes[0].value)};`
+                );
+
+                for (
+                    const segment
+                    of segments
+                ) {
+                    lines.push(
+                        `    else if (t <= ${formatNumber(segment.b.time)}) {`
+                    );
+
+                    lines.push(
+                        `        const u = (t - ${formatNumber(segment.a.time)}) / ${formatNumber(segment.span)};`
+                    );
+
+                    lines.push(
+                        `        return ${segment.expression};`
+                    );
+
+                    lines.push(
+                        "    }"
+                    );
+                }
+
+                lines.push(
+                    `    return ${formatNumber(keyframes[keyframes.length - 1].value)};`
+                );
+
+                lines.push(
+                    "}"
+                );
+
+                return lines.join(
+                    "\n"
+                );
+            }
+
+            function renderEquation() {
+                equationCode.textContent =
+                    generateEquation(
+                        equationLanguage.value
+                    );
+            }
+
+            equationLanguage.addEventListener(
+                "change",
+                renderEquation
+            );
+
+            copyEquation.addEventListener(
+                "click",
+                async () => {
+                    const text =
+                        equationCode.textContent;
+
+                    try {
+                        await navigator.clipboard.writeText(
+                            text
+                        );
+
+                        const original =
+                            copyEquation.textContent;
+
+                        copyEquation.textContent =
+                            "Copied!";
+
+                        setTimeout(
+                            () => {
+                                copyEquation.textContent =
+                                    original;
+                            },
+                            900
+                        );
+                    } catch {
+                        const range =
+                            document.createRange();
+
+                        range.selectNodeContents(
+                            equationCode
+                        );
+
+                        const selection =
+                            window.getSelection();
+
+                        selection.removeAllRanges();
+
+                        selection.addRange(
+                            range
+                        );
+                    }
+                }
+            );
+
+            /*
+             * ----------------------------------------------------
+             * Playback
+             * ----------------------------------------------------
+             */
+
+            function setPlaying(
+                value
+            ) {
+                playing =
+                    value;
+
+                lastFrameTime =
+                    performance.now();
+
+                if (
+                    playing
+                ) {
+                    animationFrame =
+                        requestAnimationFrame(
+                            animationLoop
+                        );
+                } else if (
+                    animationFrame
+                ) {
+                    cancelAnimationFrame(
+                        animationFrame
+                    );
+
+                    animationFrame =
+                        null;
+                }
+
+                render();
+            }
+
+            function animationLoop(
+                now
+            ) {
+                if (
+                    !playing
+                ) {
+                    return;
+                }
+
+                const delta =
+                    (
+                        now -
+                        lastFrameTime
+                    ) /
+                    1000;
+
+                lastFrameTime =
+                    now;
+
+                currentTime +=
+                    delta;
+
+                if (
+                    currentTime >=
+                    duration
+                ) {
+                    currentTime =
+                        0;
+                }
+
+                render();
+
+                animationFrame =
+                    requestAnimationFrame(
+                        animationLoop
+                    );
+            }
+
+            playButton.addEventListener(
+                "click",
+                () => {
+                    setPlaying(
+                        !playing
+                    );
+                }
+            );
+
+            /*
+             * ----------------------------------------------------
+             * Keyboard shortcuts
+             * ----------------------------------------------------
+             */
+
+            document.addEventListener(
+                "keydown",
+                event => {
+                    if (
+                        event.code ===
+                            "Space" &&
+                        !event.target.matches(
+                            "input, select, textarea"
+                        )
+                    ) {
+                        event.preventDefault();
+
+                        setPlaying(
+                            !playing
+                        );
+                    }
+
+                    if (
+                        event.key ===
+                        "Escape"
+                    ) {
+                        deselectKeyframe();
+                    }
+
+                    if (
+                        event.key ===
+                            "Delete" &&
+                        selectedKeyframe &&
+                        !event.target.matches(
+                            "input, select"
+                        )
+                    ) {
+                        deleteKeyframe.click();
+                    }
+                }
+            );
+
+            /*
+             * ----------------------------------------------------
+             * Keyboard shortcuts for time
+             * ----------------------------------------------------
+             */
+
+            document.addEventListener(
+                "keydown",
+                event => {
+                    if (
+                        event.target.matches(
+                            "input, select, textarea"
+                        )
+                    ) {
+                        return;
+                    }
+
+                    if (
+                        event.key ===
+                        "ArrowLeft"
+                    ) {
+                        currentTime =
+                            getSnappedTime(
+                                clamp(
+                                    currentTime -
+                                        0.1,
+                                    0,
+                                    duration
+                                )
+                            );
+
+                        render();
+                    }
+
+                    if (
+                        event.key ===
+                        "ArrowRight"
+                    ) {
+                        currentTime =
+                            getSnappedTime(
+                                clamp(
+                                    currentTime +
+                                        0.1,
+                                    0,
+                                    duration
+                                )
+                            );
+
+                        render();
+                    }
+
+                    if (
+                        event.key ===
+                        "Home"
+                    ) {
+                        currentTime =
+                            0;
+
+                        render();
+                    }
+
+                    if (
+                        event.key ===
+                        "End"
+                    ) {
+                        currentTime =
+                            duration;
+
+                        render();
+                    }
+                }
+            );
+
+            /*
+             * ----------------------------------------------------
+             * Timeline resizing
+             * ----------------------------------------------------
+             */
+
+            timelineResizer.addEventListener(
+                "pointerdown",
+                event => {
+                    resizingTimeline =
+                        true;
+
+                    resizeStartY =
+                        event.clientY;
+
+                    resizeStartHeight =
+                        timeline.offsetHeight;
+
+                    timelineResizer.setPointerCapture(
+                        event.pointerId
+                    );
+
+                    event.preventDefault();
+                }
+            );
+
+            timelineResizer.addEventListener(
+                "pointermove",
+                event => {
+                    if (
+                        !resizingTimeline
+                    ) {
+                        return;
+                    }
+
+                    const delta =
+                        resizeStartY -
+                        event.clientY;
+
+                    const newHeight =
+                        clamp(
+                            resizeStartHeight +
+                                delta,
+                            120,
+                            window.innerHeight *
+                                0.75
+                        );
+
+                    timeline.style.height =
+                        `${newHeight}px`;
+
+                    timeline.style.flexBasis =
+                        `${newHeight}px`;
+
+                    render();
+                }
+            );
+
+            timelineResizer.addEventListener(
+                "pointerup",
+                () => {
+                    resizingTimeline =
+                        false;
+                }
+            );
+
+            /*
+             * ----------------------------------------------------
+             * Global click-to-deselect
+             * ----------------------------------------------------
+             */
+
+            document.addEventListener(
+                "pointerdown",
+                event => {
+                    if (
+                        selectedKeyframe &&
+                        !event.target.closest(
+                            ".keyframe"
+                        ) &&
+                        !event.target.closest(
+                            ".editor"
+                        ) &&
+                        !event.target.closest(
+                            ".equation-panel"
+                        ) &&
+                        !event.target.closest(
+                            ".timeline-resizer"
+                        )
+                    ) {
+                        if (
+                            event.target.closest(
+                                ".timeline-track"
+                            )
+                        ) {
+                            return;
+                        }
+
+                        if (
+                            event.target.closest(
+                                ".graph"
+                            )
+                        ) {
+                            return;
+                        }
+
+                        deselectKeyframe();
+                    }
+                }
+            );
+
+            /*
+             * ----------------------------------------------------
+             * Resize
+             * ----------------------------------------------------
+             */
+
+            window.addEventListener(
+                "resize",
+                () => {
+                    renderKeyframes();
+                    render();
+                }
+            );
+
+            /*
+             * ----------------------------------------------------
+             * Initial render
+             * ----------------------------------------------------
+             */
+
+            renderRuler();
+            renderKeyframes();
+            render();
+        })();
+    </script>
+</body>
+</html>
